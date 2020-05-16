@@ -288,11 +288,18 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 			}
 
 			try {
+				/*
+					如果在bean的定义中有parents=""属性，这个方法会将"子类中没有，父类中有的属性继承过来"
+					类似与java中的继承。
+				 */
 				final RootBeanDefinition mbd = getMergedLocalBeanDefinition(beanName);
 				checkMergedBeanDefinition(mbd, beanName, args);
 
 				// Guarantee initialization of beans that the current bean depends on.
 				String[] dependsOn = mbd.getDependsOn();
+				/*
+				如果这个bean有depends-on属性，则会优先初始化depends-on的bean
+				 */
 				if (dependsOn != null) {
 					for (String dep : dependsOn) {
 						if (isDependent(beanName, dep)) {
@@ -314,6 +321,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 				if (mbd.isSingleton()) {
 					sharedInstance = getSingleton(beanName, () -> {
 						try {
+							//正式进入bean的 实例化 属性注入 以及初始化的阶段
 							return createBean(beanName, mbd, args);
 						}
 						catch (BeansException ex) {
@@ -1242,6 +1250,11 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 	 * @return a (potentially merged) RootBeanDefinition for the given bean
 	 * @throws BeanDefinitionStoreException in case of an invalid bean definition
 	 */
+	/*
+		如果这个bean是child beanDefinition的话就和她的parentDefinition
+		进行merge，最终返回merge之后的rootBeanDefinition。如果没有设置过scope，在这里会将他的 scope
+		设置为"singleTon"
+	 */
 	protected RootBeanDefinition getMergedBeanDefinition(
 			String beanName, BeanDefinition bd, @Nullable BeanDefinition containingBd)
 			throws BeanDefinitionStoreException {
@@ -1293,6 +1306,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 					mbd.overrideFrom(bd);
 				}
 
+				//如果没有设置过scope，这里会将之设置为singleTon
 				// Set default singleton scope, if not configured before.
 				if (!StringUtils.hasLength(mbd.getScope())) {
 					mbd.setScope(SCOPE_SINGLETON);
@@ -1305,7 +1319,8 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 				if (containingBd != null && !containingBd.isSingleton() && mbd.isSingleton()) {
 					mbd.setScope(containingBd.getScope());
 				}
-
+				//merge之后的bd会被放到一个名叫mergedBeanDefinitions的map中存储，避免对一个bd
+				//merge多次
 				// Cache the merged bean definition for the time being
 				// (it might still get re-merged later on in order to pick up metadata changes)
 				if (containingBd == null && isCacheBeanMetadata()) {

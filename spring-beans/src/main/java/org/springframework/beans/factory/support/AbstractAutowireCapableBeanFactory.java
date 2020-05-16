@@ -480,6 +480,11 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		}
 
 		try {
+			/*
+				这个是什么？需要查询
+
+
+			 */
 			// Give BeanPostProcessors a chance to return a proxy instead of the target bean instance.
 			Object bean = resolveBeforeInstantiation(beanName, mbdToUse);
 			if (bean != null) {
@@ -492,6 +497,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		}
 
 		try {
+			//调用doCreateBean创建bean的实例以及后续的属性注入以及初始化
 			Object beanInstance = doCreateBean(beanName, mbdToUse, args);
 			if (logger.isDebugEnabled()) {
 				logger.debug("Finished creating instance of bean '" + beanName + "'");
@@ -1078,6 +1084,33 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 	 * @see #instantiateBean
 	 */
 	protected BeanWrapper createBeanInstance(String beanName, RootBeanDefinition mbd, @Nullable Object[] args) {
+		/*
+
+		参考blog：
+		http://cmsblogs.com/?p=2848
+		https://blog.csdn.net/u014252478/article/details/84936587
+			实例化一个bean有三种方式：
+			最终都是调用了InstantiationStrategy（CglibSubclassingInstantiationStrategy 以及SimpleInstantiationStrategy，
+			前者是后者的子类）的instantiate进行实例化的。
+			官网上说明创建bean的方法有三种： 1： 构造函数 2： 实例工厂方法 3： 静态工厂方法
+			但是对于这几种不同的实例化方法有具体的细节划分：如下
+				1：使用bean中定义的工厂方法（instantiateUsingFactoryMethod）：包括了实例工厂以及static工厂，就是在xml中定义的factory-method属性
+				   需要注意的一点是，如果由多个工厂方法，会有使用的顺序。
+				   ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+				   Sort the given factory methods, preferring public methods and "greedy" ones
+	               with a maximum of arguments. The result will contain public methods first,
+	  			   with decreasing number of arguments, then non-public methods, again with
+	  			   decreasing number of arguments.
+	  			   ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+					即：public的方法先执行，如果多个public，则参数越多的越先执行。然后才是non-public方法，
+					也是参数越多的越先执行。
+				2：解析构造函数，这里有几种情况，包括了下面的3->5
+					每种在下面都有相关的解析。
+
+		第四种和第五种比较麻烦，因为他们需要判断参数的个数来确定使用哪一个构造函数
+
+		 */
+
 		// Make sure bean class is actually resolved at this point.
 		Class<?> beanClass = resolveBeanClass(mbd, beanName);
 
@@ -1085,15 +1118,23 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			throw new BeanCreationException(mbd.getResourceDescription(), beanName,
 					"Bean class isn't public, and non-public access not allowed: " + beanClass.getName());
 		}
-
+		// ① Spring5.0新增的实例化策略,如果设置了该策略,将会覆盖构造方法和工厂
+		// 方法实例化策略
 		Supplier<?> instanceSupplier = mbd.getInstanceSupplier();
 		if (instanceSupplier != null) {
 			return obtainFromSupplier(instanceSupplier, beanName);
 		}
-
+		// ② 如果有工厂方法的话,则使用工厂方法实例化bean
 		if (mbd.getFactoryMethodName() != null) {
 			return instantiateUsingFactoryMethod(beanName, mbd, args);
 		}
+
+		// ③ 当创建一个相同的bean时,使用之间保存的快照
+		// 这里可能会有一个疑问,什么时候会创建相同的bean呢?
+		//      ③-->① 单例模式: Spring不会缓存该模式的实例,那么对于单例模式的bean,什么时候会用到该实例化策略呢?
+		//                 我们知道对于IoC容器除了可以索取bean之外,还能销毁bean,当我们调用xmlBeanFactory.destroyBean(myBeanName,myBeanInstance),
+		//                 销毁bean时,容器是不会销毁已经解析的构造函数快照的,如果再次调用xmlBeanFactory.getBean(myBeanName)时,就会使用该策略了.
+		//      ③-->② 原型模式: 对于该模式的理解就简单了,IoC容器不会缓存原型模式bean的实例,当我们第二次向容器索取同一个bean时,就会使用该策略了.
 
 		// Shortcut when re-creating the same bean...
 		boolean resolved = false;
@@ -1106,15 +1147,19 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 				}
 			}
 		}
+		// 如果该bean已经被解析过
 		if (resolved) {
+			// 使用已经解析过的构造函数实例化
 			if (autowireNecessary) {
+				//这个方法 相当于有参构造方法
 				return autowireConstructor(beanName, mbd, null, null);
 			}
+			// 使用默认无参构造函数实例化
 			else {
 				return instantiateBean(beanName, mbd);
 			}
 		}
-
+		// ④ 自动注入使用 @autowire
 		// Candidate constructors for autowiring?
 		Constructor<?>[] ctors = determineConstructorsFromBeanPostProcessors(beanClass, beanName);
 		if (ctors != null || mbd.getResolvedAutowireMode() == AUTOWIRE_CONSTRUCTOR ||
@@ -1122,6 +1167,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			return autowireConstructor(beanName, mbd, ctors, args);
 		}
 
+		// ⑤ 无任何的特殊处理,则使用默认的无参构造函数实例化bean
 		// No special handling: simply use no-arg constructor.
 		return instantiateBean(beanName, mbd);
 	}
@@ -1676,6 +1722,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 
 		Object wrappedBean = bean;
 		if (mbd == null || !mbd.isSynthetic()) {
+			调用自定的beanpostProcessors的postProcessBeforeInitialization（）方法
 			wrappedBean = applyBeanPostProcessorsBeforeInitialization(wrappedBean, beanName);
 		}
 
@@ -1688,6 +1735,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 					beanName, "Invocation of init method failed", ex);
 		}
 		if (mbd == null || !mbd.isSynthetic()) {
+			//调用自定的beanpostProcessors的postProcessAfterInitialization（）方法
 			wrappedBean = applyBeanPostProcessorsAfterInitialization(wrappedBean, beanName);
 		}
 

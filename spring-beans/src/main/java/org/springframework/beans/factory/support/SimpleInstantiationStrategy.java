@@ -59,6 +59,18 @@ public class SimpleInstantiationStrategy implements InstantiationStrategy {
 
 	@Override
 	public Object instantiate(RootBeanDefinition bd, @Nullable String beanName, BeanFactory owner) {
+
+		//https://blog.csdn.net/u014252478/article/details/84936587
+		//http://cmsblogs.com/?p=2848
+		/*
+			这里涉及到实例化bean的具体实现：1:反射 2：CGlib
+			如果该 bean 没有配置 lookup-method、replaced-method 标签或者
+			@Lookup 注解，则直接通过反射的方式实例化 bean 即可，方便快捷，
+			但是如果存在需要覆盖的方法或者动态替换的方法则需要使用 CGLIB
+			进行动态代理，因为可以在创建代理的同时将动态方法织入类中。
+
+		 */
+
 		// Don't override the class with CGLIB if no overrides.
 		if (!bd.hasMethodOverrides()) {
 			Constructor<?> constructorToUse;
