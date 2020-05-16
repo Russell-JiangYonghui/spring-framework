@@ -286,6 +286,7 @@ class BeanDefinitionValueResolver {
 	 */
 	@Nullable
 	private Object resolveReference(Object argName, RuntimeBeanReference ref) {
+		//这个方法会对没有创建，但是此时会被引用的bean调用getBean()进行创建
 		try {
 			Object bean;
 			String refName = ref.getBeanName();

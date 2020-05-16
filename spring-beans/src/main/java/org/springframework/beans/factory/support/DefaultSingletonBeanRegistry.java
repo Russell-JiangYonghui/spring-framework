@@ -148,6 +148,15 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 	 * @param singletonFactory the factory for the singleton object
 	 */
 	protected void addSingletonFactory(String beanName, ObjectFactory<?> singletonFactory) {
+		/*
+			使用多级缓存处理循环依赖问题
+			1：一级缓存： singletonObjects ---->常说的单例缓存池  Map<String, Object> singletonObjects
+			2：二级缓存： singletonFactories ---->早期的singleton bean暴露出来（也就是存在这个Map中） Map<String, ObjectFactory<?>> singletonFactories）
+			3：三级缓存： earlySingletonObjects ---->早期的引用 Map<String, Object> earlySingletonObjects
+			为什么需要三级缓存？两级不行吗？
+			https://www.despairyoke.com/2019/12/17/2019/2019-12-17-spring-depand/
+		 */
+
 		Assert.notNull(singletonFactory, "Singleton factory must not be null");
 		synchronized (this.singletonObjects) {
 			if (!this.singletonObjects.containsKey(beanName)) {
@@ -174,6 +183,10 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 	 */
 	@Nullable
 	protected Object getSingleton(String beanName, boolean allowEarlyReference) {
+		/*
+			多级缓存解决循环依赖
+
+		 */
 		Object singletonObject = this.singletonObjects.get(beanName);
 		if (singletonObject == null && isSingletonCurrentlyInCreation(beanName)) {
 			synchronized (this.singletonObjects) {
@@ -212,6 +225,7 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 				if (logger.isDebugEnabled()) {
 					logger.debug("Creating shared instance of singleton bean '" + beanName + "'");
 				}
+				//这里将bean的状态改为正在创建，也就是加到 singletonsCurrentlyInCreation中
 				beforeSingletonCreation(beanName);
 				boolean newSingleton = false;
 				boolean recordSuppressedExceptions = (this.suppressedExceptions == null);
@@ -242,9 +256,14 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 					if (recordSuppressedExceptions) {
 						this.suppressedExceptions = null;
 					}
+					//创建完毕，就将这个bean的"正在创建"状态删除。也就是从singletonsCurrentlyInCreation中删掉这个bean
 					afterSingletonCreation(beanName);
 				}
 				if (newSingleton) {
+					/*
+						将创建完整的singleton加入单例缓存池中
+						并且"早期对象缓存池"中删除这个bean
+					 */
 					addSingleton(beanName, singletonObject);
 				}
 			}

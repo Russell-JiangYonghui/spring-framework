@@ -242,6 +242,12 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 		final String beanName = transformedBeanName(name);
 		Object bean;
 
+		/*
+			这个方法是Spring IOC的核心：利用多级缓存解决循环依赖的问题
+			每次需要重新getBean()拿一个bean的时候，都会先尝试从singleton缓存池中查找。如果找到了
+			就直接使用，如果没有，就继续执行正常的crateBean流程
+
+		 */
 		// Eagerly check singleton cache for manually registered singletons.
 		Object sharedInstance = getSingleton(beanName);
 		if (sharedInstance != null && args == null) {
@@ -254,6 +260,8 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 					logger.debug("Returning cached instance of singleton bean '" + beanName + "'");
 				}
 			}
+
+			//判断是不是工厂bean
 			bean = getObjectForBeanInstance(sharedInstance, name, beanName, null);
 		}
 
