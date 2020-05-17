@@ -70,6 +70,14 @@ public abstract class NamespaceHandlerSupport implements NamespaceHandler {
 	@Override
 	@Nullable
 	public BeanDefinition parse(Element element, ParserContext parserContext) {
+		/*
+			这里回去找到parse这个Element的parser；
+			包括了三种: aspecj-autoproxy
+					  spring-configured
+					  config
+			这三种parser都会存在一个map中，会根据传入的这个element找到localName（上面三种中的其中一个）
+			如果是XML会跳转到ConfigBeanDefinitionParser中的parse方法。
+		 */
 		BeanDefinitionParser parser = findParserForElement(element, parserContext);
 		return (parser != null ? parser.parse(element, parserContext) : null);
 	}

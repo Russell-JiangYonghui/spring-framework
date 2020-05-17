@@ -117,7 +117,12 @@ public abstract class AopConfigUtils {
 	@Nullable
 	private static BeanDefinition registerOrEscalateApcAsRequired(
 			Class<?> cls, BeanDefinitionRegistry registry, @Nullable Object source) {
-
+			/*
+				这个方法会创建自动代理构建器
+				如果已经存在，那么比较当前和已经存在的构建器的优先级，保留优先级高的
+				如果不存在，
+				那么会创建代理构建器对应的BeanDefinition，并将它你注册到registry中
+			 */
 		Assert.notNull(registry, "BeanDefinitionRegistry must not be null");
 
 		if (registry.containsBeanDefinition(AUTO_PROXY_CREATOR_BEAN_NAME)) {

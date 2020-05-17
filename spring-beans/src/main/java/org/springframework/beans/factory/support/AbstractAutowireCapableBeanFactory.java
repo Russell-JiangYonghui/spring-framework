@@ -482,12 +482,17 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		try {
 			/*
 				这个是什么？需要查询
-				这里就是调用InstantiationAwareBeanPostProcessor的地方；属于AOP的方法
+				这里就是调用InstantiationAwareBeanPostProcessor的地方；属于AOP的入口
 
 
 			 */
 			// Give BeanPostProcessors a chance to return a proxy instead of the target bean instance.
 			Object bean = resolveBeforeInstantiation(beanName, mbdToUse);
+			/*
+				注意，这里有个很重要的点：如果存在某个InstantiationAwareBeanPostProcessor存在
+				，并且返回了一个bean，那么后续的代码将不再执行，就直接将这个bean返回。也就是这里创建了
+				一个代理对象。
+			 */
 			if (bean != null) {
 				return bean;
 			}
@@ -1056,6 +1061,14 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			if (!mbd.isSynthetic() && hasInstantiationAwareBeanPostProcessors()) {
 				Class<?> targetType = determineTargetType(beanName, mbd);
 				if (targetType != null) {
+					/*
+						这里就会调用我们自定义的InstantiationAwareBeanPostProcessor。
+						并且，如果没有重写，那么我们这里回去开启AOP的代理生成过程。 ----> AbstractAutoProxyCreator
+						AbstractAutoProxyCreator里面才是AOP的核心。
+						他们之间的联系是：AbstractAutoProxyCreator是BeanPostProcessor的子类，那么一定会执行
+						postProcessBeforeInstantiation 和postProcessorsAfterInitialization.
+
+					 */
 					bean = applyBeanPostProcessorsBeforeInstantiation(targetType, beanName);
 					if (bean != null) {
 						bean = applyBeanPostProcessorsAfterInitialization(bean, beanName);
