@@ -65,8 +65,13 @@ public abstract class AopNamespaceUtils {
 	public static void registerAspectJAutoProxyCreatorIfNecessary(
 			ParserContext parserContext, Element sourceElement) {
 
+		/*
+			1： 如果当前代理构建器已经存在，就比较两者的优先级，保留优先级高的
+			2： 如果不存在，就创建当前代理构建器，并将它注册到registry中
+		 */
 		BeanDefinition beanDefinition = AopConfigUtils.registerAspectJAutoProxyCreatorIfNecessary(
 				parserContext.getRegistry(), parserContext.extractSource(sourceElement));
+
 		useClassProxyingIfNecessary(parserContext.getRegistry(), sourceElement);
 		registerComponentIfNecessary(beanDefinition, parserContext);
 	}
@@ -76,6 +81,9 @@ public abstract class AopNamespaceUtils {
 
 		BeanDefinition beanDefinition = AopConfigUtils.registerAspectJAnnotationAutoProxyCreatorIfNecessary(
 				parserContext.getRegistry(), parserContext.extractSource(sourceElement));
+		/*
+			解析proxy-target-class 和expose_proxy 属性
+		 */
 		useClassProxyingIfNecessary(parserContext.getRegistry(), sourceElement);
 		registerComponentIfNecessary(beanDefinition, parserContext);
 	}
@@ -83,10 +91,19 @@ public abstract class AopNamespaceUtils {
 	private static void useClassProxyingIfNecessary(BeanDefinitionRegistry registry, @Nullable Element sourceElement) {
 		if (sourceElement != null) {
 			boolean proxyTargetClass = Boolean.parseBoolean(sourceElement.getAttribute(PROXY_TARGET_CLASS_ATTRIBUTE));
+			/*
+				解析proxy-target-class 属性
+				两个属性的方法都是将这个属性的key-value键值对的方式设置到此beanDefinition上
+				分别是： <proxyTargetClass，true>
+					   <exposeProxy,true>
+			 */
 			if (proxyTargetClass) {
 				AopConfigUtils.forceAutoProxyCreatorToUseClassProxying(registry);
 			}
 			boolean exposeProxy = Boolean.parseBoolean(sourceElement.getAttribute(EXPOSE_PROXY_ATTRIBUTE));
+			/*
+				解析expose_proxy 属性
+			 */
 			if (exposeProxy) {
 				AopConfigUtils.forceAutoProxyCreatorToExposeProxy(registry);
 			}

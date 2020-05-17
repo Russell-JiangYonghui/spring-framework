@@ -99,18 +99,65 @@ class ConfigBeanDefinitionParser implements BeanDefinitionParser {
 	@Override
 	@Nullable
 	public BeanDefinition parse(Element element, ParserContext parserContext) {
+		/*
+			这里会对我们在XML里面配置的AOP相关内容进行parse：
+			<aop:config proxy-target-class="true">
+				<aop:aspect id="myAspect" ref="myAspect">
+					<aop:pointcut id="addAllMethod" expression="execution(* spring.Person.*(..))" />
+					<aop:before method="beforeAdvie" pointcut-ref="addAllMethod" />
+					<aop:after method="afterAdvice" pointcut-ref="addAllMethod" />
+				</aop:aspect>
+			</aop:config>
+
+		 */
 		CompositeComponentDefinition compositeDef =
 				new CompositeComponentDefinition(element.getTagName(), parserContext.extractSource(element));
 		parserContext.pushContainingComponent(compositeDef);
 
+		/*
+			这里会创建代理构建器，并且解析proxy-target-class 和expose_proxy两个属性。
+
+ 		*/
 		configureAutoProxyCreator(parserContext, element);
 
+		/*
+			接下来就会解析pointcut；advisor；aspect属性
+		 */
 		List<Element> childElts = DomUtils.getChildElements(element);
 		for (Element elt: childElts) {
 			String localName = parserContext.getDelegate().getLocalName(elt);
 			if (POINTCUT.equals(localName)) {
 				parsePointcut(elt, parserContext);
 			}
+
+			/*
+				这里有一个疑问？ Advisor和Aspect的区别是什么？
+				https://www.jianshu.com/p/40f79da0cdef 这篇博客讲的很清楚
+1. 切面（Aspect）
+　　 切面就是在一个怎么样的环境中工作。比如数据库的事务直接贯穿了整个代码层面，这就是一个切面，它能够在被代理对象的方法之前、之后，
+	产生异常或者正常返回后切入你的代码，甚至代替原来被代理对象的方法，在动态代理中可以把它理解成一个拦截器。
+2. 通知（Adice）
+　　•通知是切面开启后，切面的方法。它根据在代理对象真实方法调用前、后的顺序和逻辑区分，它和约定游戏的例子里的拦截器的方法十分接近。
+　　•前置通知（before）：在动态代理反射原有对象方法或者执行环绕通知前执行的通知功能。
+　　•后置通知（after）：在动态代理反射原有对象方法或者执行环绕通知后执行的通知功能。无论是否抛出异常，它都会被执行。
+　　•返回通知（afterReturning）：在动态代理反射原有对象方法或者执行环绕通知后执行的通知功能。
+　　•异常通知（afterThrowing）：在动态代理反射原有对象方法或者执行环绕通知产生异常后执行的通知功能。
+　　•环绕通知（aroundThrowing）：在动态代理中，它可以取代当前被拦截对象的方法，通过参数或反射调用被拦截对象的方法。
+
+3. 引入（Introduction）
+　　引入允许我们在现有的类里添加自定义的类和方法。
+
+4. 切点（Pointcut）（匹配连接点的断言，在AOP中通知和一个切点表达式关联）
+　　在动态代理中，被切面拦截的方法就是一个切点，切面将可以将其切点和被拦截的方法按照一定的逻辑织入到约定流程当中。
+
+5. 连接点（join point）（程序在执行过程中某个特定的点）
+　　连接点是一个判断条件，由它可以指定哪些是切点。对于指定的切点，Spring会生成代理对象去使用对应的切面对其拦截，否则就不会拦截它。
+
+6. 织入（Weaving）（把切面连接到其他的应用程序或者对象上，并创建一个被通知的对象。织入的方式有：编译期织入，类加载时织入，运行时织入）
+　　 织入是一个生成代理对象的过程。实际代理的方法分为静态代理和动态代理。静态代理是在编译class文件时生成的代码逻辑，但是在Spring中并
+	不使用这样的方式，所以我们就不展开讨论了。一种是通过ClassLoader也就是在类加载的时候生成的代码逻辑，但是它在应用程序代码运行前就生成
+	对应的逻辑。还有一种是运行期，动态生成代码的方式，这是Spring AOP所采用的方式，Spring是以JDK和CGLIB动态代理来生成代理对象的
+			 */
 			else if (ADVISOR.equals(localName)) {
 				parseAdvisor(elt, parserContext);
 			}
@@ -216,6 +263,9 @@ class ConfigBeanDefinitionParser implements BeanDefinitionParser {
 			boolean adviceFoundAlready = false;
 			for (int i = 0; i < nodeList.getLength(); i++) {
 				Node node = nodeList.item(i);
+				/*
+					这里判断是不是advice的方法就是判断是不是before, after,after-return,after-throwing,around中的任何一个
+				 */
 				if (isAdviceNode(node, parserContext)) {
 					if (!adviceFoundAlready) {
 						adviceFoundAlready = true;
@@ -227,6 +277,9 @@ class ConfigBeanDefinitionParser implements BeanDefinitionParser {
 						}
 						beanReferences.add(new RuntimeBeanReference(aspectName));
 					}
+					/*
+						将
+					 */
 					AbstractBeanDefinition advisorDefinition = parseAdvice(
 							aspectName, i, aspectElement, (Element) node, parserContext, beanDefinitions, beanReferences);
 					beanDefinitions.add(advisorDefinition);
@@ -320,6 +373,7 @@ class ConfigBeanDefinitionParser implements BeanDefinitionParser {
 			this.parseState.push(new AdviceEntry(parserContext.getDelegate().getLocalName(adviceElement)));
 
 			// create the method factory bean
+			// 解析advice节点中的"method"属性，并包装为MethodLocatingFactoryBean对象
 			RootBeanDefinition methodDefinition = new RootBeanDefinition(MethodLocatingFactoryBean.class);
 			methodDefinition.getPropertyValues().add("targetBeanName", aspectName);
 			methodDefinition.getPropertyValues().add("methodName", adviceElement.getAttribute("method"));
@@ -441,14 +495,25 @@ class ConfigBeanDefinitionParser implements BeanDefinitionParser {
 
 		try {
 			this.parseState.push(new PointcutEntry(id));
+			/*
+				这里会为将为pointcut（AspectJExpressionPointcut）创建一个beanDefinition（rootBeanDefinition类型的，和正常bean生成GenericBeanDefinition不同）
+				scope为prototype
+
+			 */
 			pointcutDefinition = createPointcutDefinition(expression);
 			pointcutDefinition.setSource(parserContext.extractSource(pointcutElement));
 
 			String pointcutBeanName = id;
 			if (StringUtils.hasText(pointcutBeanName)) {
+				/*
+					id属性值不为空时，将这个Id作为bd的名称
+				 */
 				parserContext.getRegistry().registerBeanDefinition(pointcutBeanName, pointcutDefinition);
 			}
 			else {
+				/*
+					id属性值为空时，使用bean名称生成器来为Pointcut创建bean名称，并注册到容器中
+				 */
 				pointcutBeanName = parserContext.getReaderContext().registerWithGeneratedName(pointcutDefinition);
 			}
 

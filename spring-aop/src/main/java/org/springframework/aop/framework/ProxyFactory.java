@@ -107,6 +107,14 @@ public class ProxyFactory extends ProxyCreatorSupport {
 	 * @return the proxy object
 	 */
 	public Object getProxy(@Nullable ClassLoader classLoader) {
+		/*
+			createAopProxy方法会判断使用JDK动态代理还是CGLIB动态代理
+			CGLIB的唯一条件就是代理对象没有实现接口
+
+			JDKDynamicProxy : https://www.jianshu.com/p/4ae6140b4fb4
+			https://www.jianshu.com/p/471c80a7e831
+			CGLIBDynamicProxy: https://www.jianshu.com/p/9a61af393e41?from=timeline&isappinstalled=0
+		 */
 		return createAopProxy().getProxy(classLoader);
 	}
 
