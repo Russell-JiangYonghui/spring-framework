@@ -54,6 +54,13 @@ final class PostProcessorRegistrationDelegate {
 		// Invoke BeanDefinitionRegistryPostProcessors first, if any.
 		Set<String> processedBeans = new HashSet<>();
 
+
+		/*
+			这里会读取所有我们自定义的 BeanDefinitionRegistryPostProcessor 和BeanDefinitionRegistryPostProcessor
+			和 BeanFactoryPostProcessors。 前者是后者的子类，
+			先执行前者，后执行后者。并且可以定义同优先级的postprocessor。继承的接口可以是PriorityOrdered， ordered和没有顺序的三种类型。
+
+		 */
 		if (beanFactory instanceof BeanDefinitionRegistry) {
 			BeanDefinitionRegistry registry = (BeanDefinitionRegistry) beanFactory;
 			List<BeanFactoryPostProcessor> regularPostProcessors = new ArrayList<>();
@@ -78,6 +85,7 @@ final class PostProcessorRegistrationDelegate {
 			List<BeanDefinitionRegistryPostProcessor> currentRegistryProcessors = new ArrayList<>();
 
 			// First, invoke the BeanDefinitionRegistryPostProcessors that implement PriorityOrdered.
+
 			String[] postProcessorNames =
 					beanFactory.getBeanNamesForType(BeanDefinitionRegistryPostProcessor.class, true, false);
 			for (String ppName : postProcessorNames) {
