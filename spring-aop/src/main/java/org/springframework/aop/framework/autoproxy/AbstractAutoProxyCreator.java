@@ -244,12 +244,24 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 	@Override
 	public Object postProcessBeforeInstantiation(Class<?> beanClass, String beanName) throws BeansException {
 		Object cacheKey = getCacheKey(beanClass, beanName);
-
+		/*BeanFactory
+			这篇博客讲的很清楚
+			https://www.jianshu.com/p/cd1e8537c035
+		 */
 		if (!StringUtils.hasLength(beanName) || !this.targetSourcedBeans.contains(beanName)) {
 			if (this.advisedBeans.containsKey(cacheKey)) {
 				return null;
 			}
+			/*
+				这里会先判断是不是AOP的基本属性：Advice，Pointcut，Advisor，AopInfrastructureBean
+				isInfrastructureClass（）方法是返回传入的这个bean是不是代表这AOP中的这几种类型
+				shouldSkip：这个方法是最重要的,找到所有的切面
+
+			 */
 			if (isInfrastructureClass(beanClass) || shouldSkip(beanClass, beanName)) {
+				/*
+					不需要代理,z直接返回
+				 */
 				this.advisedBeans.put(cacheKey, Boolean.FALSE);
 				return null;
 			}
@@ -449,7 +461,7 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 		ProxyFactory proxyFactory = new ProxyFactory();
 		proxyFactory.copyFrom(this);
 
-		if (!proxyFactory.isProxyTargetClass()) {
+		if (!proNxyFactory.isProxyTargetClass()) {
 			if (shouldProxyTargetClass(beanClass, beanName)) {
 				proxyFactory.setProxyTargetClass(true);
 			}

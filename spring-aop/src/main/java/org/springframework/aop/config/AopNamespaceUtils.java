@@ -83,6 +83,9 @@ public abstract class AopNamespaceUtils {
 				parserContext.getRegistry(), parserContext.extractSource(sourceElement));
 		/*
 			解析proxy-target-class 和expose_proxy 属性
+			proxy-target-class属性值决定是基于接口的还是基于类的代理被创建。首先说明下proxy-target-class="true"
+			和proxy-target-class="false"的区别，为true则是基于类的代理将起作用（需要cglib库），
+			为false或者省略这个属性，则标准的JDK 基于接口的代理将起作用。
 		 */
 		useClassProxyingIfNecessary(parserContext.getRegistry(), sourceElement);
 		registerComponentIfNecessary(beanDefinition, parserContext);

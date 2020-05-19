@@ -65,11 +65,20 @@ public class BeanFactoryAdvisorRetrievalHelper {
 	 * @see #isEligibleBean
 	 */
 	public List<Advisor> findAdvisorBeans() {
+		/*
+			这个方法是用来找事务切面的
+			先从缓存cachedAdvisorBeanNames中拿，
+
+		 */
 		// Determine list of advisor bean names, if not cached already.
 		String[] advisorNames = this.cachedAdvisorBeanNames;
 		if (advisorNames == null) {
 			// Do not initialize FactoryBeans here: We need to leave all regular beans
 			// uninitialized to let the auto-proxy creator apply to them!
+
+			/*
+				从容器中找到所有实现了Advisor接口的增强器
+			 */
 			advisorNames = BeanFactoryUtils.beanNamesForTypeIncludingAncestors(
 					this.beanFactory, Advisor.class, true, false);
 			this.cachedAdvisorBeanNames = advisorNames;
@@ -80,6 +89,11 @@ public class BeanFactoryAdvisorRetrievalHelper {
 
 		List<Advisor> advisors = new ArrayList<>();
 		for (String name : advisorNames) {
+			/*永远返回true
+				这里会将<aspect>标签中的几种增强方法（例如前置，后置，环绕等）进行
+				调用getBean（）创建。
+
+			*/
 			if (isEligibleBean(name)) {
 				if (this.beanFactory.isCurrentlyInCreation(name)) {
 					if (logger.isDebugEnabled()) {

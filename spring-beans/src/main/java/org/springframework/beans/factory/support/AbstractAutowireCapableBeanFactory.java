@@ -481,9 +481,9 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 
 		try {
 			/*
-				这个是什么？需要查询
-				这里就是调用InstantiationAwareBeanPostProcessor的地方；属于AOP的入口
-
+			**************
+			* 进入方法解释
+			**************
 
 			 */
 			// Give BeanPostProcessors a chance to return a proxy instead of the target bean instance.
@@ -541,6 +541,10 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		// Instantiate the bean.
 		BeanWrapper instanceWrapper = null;
 		if (mbd.isSingleton()) {
+			/*
+			在前面的FactoryBeanRegistrySupport#getObjectFromFactoryBean方法会put到这个factoryBeanInstanceCache中
+
+			 */
 			instanceWrapper = this.factoryBeanInstanceCache.remove(beanName);
 		}
 		if (instanceWrapper == null) {
@@ -548,6 +552,29 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			/*
 				简单的说有三种实例化方式： 1： 工厂方法 2： 有参构造器 AutowireConstrutor 3： instantiationBean 无参构造器；
 				前两种比较复杂
+				工厂方法demo：
+				public class StaticCarFactory {
+					private static Map<String,Car> cars = new HashMap<String,Car>();
+					static {
+						cars.put("audi", new Car("audi",300000));
+						cars.put("baoma", new Car("baoma",500000));
+					}
+					//静态工厂方法
+					public static Car getCar(String name) {
+						return cars.get(name);
+					}
+
+					2）配置文件
+
+						<!-- 通过静态工厂方法来配置bean,注意不是配置静态工厂方法实例，而是配置bean实例 -->
+						<!--
+						class属性:指向静态工厂方法的全类名
+						factory-method:指向工厂方法的名字
+						constructor-arg:如果工厂方法需要传入参数，则使用constructor-arg来配置参数
+						-->
+						<bean id="car1" class="com.mww.spring.factory.StaticCarFactory" factory-method="getCar">
+						<constructor-arg value="audi"></constructor-arg>
+						</bean>
 			 */
 			instanceWrapper = createBeanInstance(beanName, mbd, args);
 		}
@@ -591,7 +618,10 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 				logger.debug("Eagerly caching bean '" + beanName +
 						"' to allow for resolving potential circular references");
 			}
-			//调用这个方法使得这个未完全创建成功的bean能够暴露出去
+			/*调用这个方法使得这个未完全创建成功的bean能够暴露出去
+				如果这个bean是SmartInstantiationAwareBeanPostProcessor类型（AbstractAutoProxyCreator是他的子类，
+				如果这是这个类的话，可能会返回一个代理类。所以这时候会把这个代理类放入缓存池中。）
+			 */
 			addSingletonFactory(beanName, () -> getEarlyBeanReference(beanName, mbd, bean));
 		}
 
@@ -1068,11 +1098,26 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 						他们之间的联系是：AbstractAutoProxyCreator是BeanPostProcessor的子类，那么一定会执行
 						postProcessBeforeInstantiation 和postProcessorsAfterInitialization.
 
+						applyBeanPostProcessorsBeforeInstantiation---->如果是执行代理步骤，这个方法会把配置中的PointCut等属性处理成一个个bean，相当于给创建最终的
+						代理对象作准备。
+						随后，会立即执行这个bean的后置处理器：applyBeanPostProcessorsAfterInitialization，最终是调用AbstractAutoProxyCreator 的wrapIfNecessary方法
+						方法生成最终的代理对象。这里也会设计到AOP的实现原理：是使用JDK动态代理还是使用CGLIB。
+
 					 */
+					//（1）
 					bean = applyBeanPostProcessorsBeforeInstantiation(targetType, beanName);
 					if (bean != null) {
+						//（2）
 						bean = applyBeanPostProcessorsAfterInitialization(bean, beanName);
 					}
+					/*
+					(1)中会调用applyBeanPostProcessorsBeforeInstantiation方法，这个方法也是我们的可扩展点，（这里我觉得如果
+					像AbstractAutoProxyCreator一样，返回一个bean，那么后面的创建bean的过程就不会在执行了，优点偷梁换柱的味道）对于postProcessBeforeInstantiation，只有当InstantiationAwareBeanPostProcessor是AbstractAutoProxyCreator时，
+						才会返回一个代理对象（2）才会被执行。所以这应该是是个连贯的动作：如果不是AbstractAutoProxyCreator，那么直接返回bean本身。
+						如果是AbstractAutoProxyCreator。
+						所以如果返回了一个台历对象，那么就会继续执行applyBeanPostProcessorsAfterInitialization方法，
+
+					 */
 				}
 			}
 			mbd.beforeInstantiationResolved = (bean != null);

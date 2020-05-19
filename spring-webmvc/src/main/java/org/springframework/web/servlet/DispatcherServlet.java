@@ -487,6 +487,10 @@ public class DispatcherServlet extends FrameworkServlet {
 	 */
 	@Override
 	protected void onRefresh(ApplicationContext context) {
+		/*
+		这个方法会对MVC过程中需要的给中组建进行初始化，如果没有配置
+		都回去DispatcherServlet.properties中找到
+		 */
 		initStrategies(context);
 	}
 
@@ -603,6 +607,11 @@ public class DispatcherServlet extends FrameworkServlet {
 		// Ensure we have at least one HandlerMapping, by registering
 		// a default HandlerMapping if no other mappings are found.
 		if (this.handlerMappings == null) {
+			/*
+			如果此时HandlerMapping依旧没有初始化，就会读取DispatcherServlet.properties文件中的
+			org.springframework.web.servlet.HandlerMapping=org.springframework.web.servlet.handler.BeanNameUrlHandlerMapping,
+			org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMappinquestMappingHandlerMapping
+			 */
 			this.handlerMappings = getDefaultStrategies(context, HandlerMapping.class);
 			if (logger.isDebugEnabled()) {
 				logger.debug("No HandlerMappings found in servlet '" + getServletName() + "': using default");
@@ -957,10 +966,16 @@ public class DispatcherServlet extends FrameworkServlet {
 			Exception dispatchException = null;
 
 			try {
+				/*
+					检查request是不是带有文件上传
+				 */
 				processedRequest = checkMultipart(request);
 				multipartRequestParsed = (processedRequest != request);
 
 				// Determine handler for the current request.
+				/*
+					这里拿到的是一个HandlerExecutionChain，并不是确定的HandlerMapping
+				 */
 				mappedHandler = getHandler(processedRequest);
 				if (mappedHandler == null) {
 					noHandlerFound(processedRequest, response);
@@ -968,6 +983,13 @@ public class DispatcherServlet extends FrameworkServlet {
 				}
 
 				// Determine handler adapter for the current request.
+				/*
+				这里回去读DispatcherServlet.properties中的一下配置（如果没有自定义的话）：
+				org.springframework.web.servlet.HandlerAdapter=org.springframework.web.servlet.mvc.HttpRequestHandlerAdapter,\
+				org.springframework.web.servlet.mvc.SimpleControllerHandlerAdapter,\
+				org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter
+
+				 */
 				HandlerAdapter ha = getHandlerAdapter(mappedHandler.getHandler());
 
 				// Process last-modified header, if supported by the handler.
@@ -983,18 +1005,33 @@ public class DispatcherServlet extends FrameworkServlet {
 					}
 				}
 
+				/*
+					调用拦截器的preHandle方法，
+					只有返回结果为true的时候才会继续执行
+				 */
 				if (!mappedHandler.applyPreHandle(processedRequest, response)) {
 					return;
 				}
 
 				// Actually invoke the handler.
+				/*
+					调用真正handle方法，也就是controller中的那些方法。
+				 */
 				mv = ha.handle(processedRequest, response, mappedHandler.getHandler());
 
 				if (asyncManager.isConcurrentHandlingStarted()) {
 					return;
 				}
+				/*
+					这里是获取最终的NiewName，
+					如果没有自定义的话会读取DispatcherServlet.properties中的：
+					org.springframework.web.servlet.RequestToViewNameTranslator=org.springframework.web.servlet.view.DefaultRequestToViewNameTranslator
 
+				 */
 				applyDefaultViewName(processedRequest, mv);
+				/*
+					调用拦截器的postHandle方法
+				 */
 				mappedHandler.applyPostHandle(processedRequest, response, mv);
 			}
 			catch (Exception ex) {
@@ -1005,6 +1042,9 @@ public class DispatcherServlet extends FrameworkServlet {
 				// making them available for @ExceptionHandler methods and other scenarios.
 				dispatchException = new NestedServletException("Handler dispatch failed", err);
 			}
+			/*
+			这里会调用拦截器的afterCompletion方法
+			 */
 			processDispatchResult(processedRequest, response, mappedHandler, mv, dispatchException);
 		}
 		catch (Exception ex) {
